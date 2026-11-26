@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#123047">
+<title>BK SureCheck v1.2</title>
+<style>
+:root{--bg:#f2f5f8;--card:#fff;--fg:#173047;--muted:#657786;--line:#dce4eb;--blue:#176b91;--green:#13834b;--red:#c0392b;--amber:#bd7600}
+body.dark{--bg:#101820;--card:#1c2934;--fg:#edf4f8;--muted:#a8bac8;--line:#344654;--blue:#54b4df;--green:#45c982;--red:#ff756a;--amber:#ffc15c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+header{background:#123047;color:#fff;padding:15px;position:sticky;top:0;z-index:5}h1{font-size:20px;margin:0}header small{opacity:.85}
+main{max-width:850px;margin:auto;padding:12px 12px 90px}nav,footer,.row{display:flex;gap:7px}nav{overflow:auto;margin:10px 0}button{border:0;border-radius:11px;padding:12px;font-size:15px;font-weight:700;background:var(--blue);color:white;min-height:44px;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}button.secondary{background:var(--line);color:var(--fg)}button.good{background:var(--green)}button.danger{background:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}h2{font-size:18px;margin:0 0 10px}h3{font-size:16px;margin:8px 0}
+label{display:block;font-weight:700;margin:9px 0 5px}input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;min-height:44px}textarea{min-height:90px}
+.row>*{flex:1;min-width:0}.muted{color:var(--muted);font-size:13px}.hidden{display:none!important}.item{padding:10px 0;border-bottom:1px solid var(--line)}.itemtop{display:flex;justify-content:space-between;gap:8px;align-items:center}.stat{background:var(--bg);padding:10px;border-radius:10px}.stat b{display:block;font-size:22px}
+#result{padding:14px;border-radius:11px;text-align:center;font-weight:800;background:var(--bg);margin:10px 0}#result.good{background:#d9f5e5;color:#075c32}#result.bad{background:#ffe1de;color:#8d1d15}#result.warn{background:#fff0cf;color:#754700}
+.dark #result.good{background:#164a32;color:#b9f7d2}.dark #result.bad{background:#572723;color:#ffd0cb}.dark #result.warn{background:#51401e;color:#ffe1a2}
+.progress{height:9px;background:var(--line);border-radius:10px;overflow:hidden;margin:10px 0}.progress div{height:100%;background:var(--green);width:0}
+.pill{display:inline-block;padding:4px 9px;border-radius:20px;background:var(--line);font-size:12px;font-weight:700}.pill.good{background:#d9f5e5;color:#075c32}.pill.warn{background:#fff0cf;color:#754700}
+footer{position:fixed;bottom:0;background:var(--card);border-top:1px solid var(--line);width:100%;padding:7px;z-index:5}footer button{flex:1;font-size:13px;padding:9px}
+#reader video{width:100%;max-height:300px;object-fit:cover;border-radius:10px;margin-top:8px}
+.phase{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}.phase.active{border:2px solid var(--blue)}
+@media(min-width:650px){main{padding-left:20px;padding-right:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
+</style>
+</head>
+<body>
+<header><h1>BK SureCheck</h1><small>ตรวจสอบความถูกต้องในการหยิบสินค้าและก่อนบรรจุ</small></header>
+<main>
+<nav>
+<button data-page="work">ตรวจสินค้า</button><button class="secondary" data-page="products">สินค้า</button><button class="secondary" data-page="history">ประวัติ</button><button class="secondary" data-page="summary">รายงาน</button>
+</nav>
+
+<section id="work">
+<div class="card">
+<h2>1. สร้างบิลทดลอง</h2>
+<label>รหัสบิลสมมติ</label><div class="row"><input id="billId" placeholder="TEST-001"><button id="reset" class="secondary">เริ่มบิลใหม่</button></div>
+<label>เลือกสินค้า</label><select id="productSelect"></select>
+<div class="row"><div><label>จำนวนตามบิล</label><input id="qty" type="number" min="1" value="1"></div><div style="display:flex;align-items:end"><button id="add" style="width:100%">เพิ่มรายการ</button></div></div>
+<div id="draft" class="muted">ยังไม่มีรายการ</div>
+<button id="start" class="good" style="width:100%;margin-top:10px">ยืนยันบิลและเริ่มสถานีหยิบ</button>
+<div id="active" class="muted"></div>
+</div>
+
+<div class="card">
+<h2>2. ขั้นตอนการตรวจสอบ</h2>
+<div id="phasePicking" class="phase active"><div class="itemtop"><b>สถานี 1 · หยิบสินค้า (Picking)</b><span id="pickBadge" class="pill">รอเริ่ม</span></div><p class="muted">สแกนสินค้าขณะหยิบ ระบบจะตรวจว่ารหัสสินค้าอยู่ในบิลและจำนวนไม่เกิน</p></div>
+<div id="phaseVerify" class="phase"><div class="itemtop"><b>สถานี 2 · ตรวจซ้ำก่อนบรรจุ (Verification)</b><span id="verifyBadge" class="pill">รอหยิบครบ</span></div><p class="muted">สแกนสินค้าจริงอีกครั้งที่จุดตรวจสอบก่อนบรรจุ ระบบเทียบกับจำนวนที่สถานี 1 บันทึกไว้</p></div>
+<div class="row"><div class="stat"><span class="muted">เวลารวม</span><b id="clock">00:00</b></div><div class="stat"><span class="muted">ขั้นตอนปัจจุบัน</span><b id="phaseText" style="font-size:17px">ยังไม่เริ่ม</b></div></div>
+<label>จำนวนต่อครั้ง</label><select id="mult"><option value="1">×1</option><option value="6">×6</option><option value="12">×12</option></select>
+<label>เครื่องสแกน USB/Bluetooth (กด Enter)</label><input id="scanInput" placeholder="แตะช่องนี้แล้วสแกนบาร์โค้ด" autocomplete="off">
+<div class="row" style="margin-top:8px"><button id="camera">เปิดกล้อง</button><button id="stopCamera" class="secondary" disabled>ปิดกล้อง</button></div>
+<div id="reader" class="hidden"></div>
+<div id="result">รอเริ่มบิล</div>
+<div class="row"><button id="undo" class="secondary" disabled>ย้อนสแกนล่าสุด</button><button id="advance" disabled>ไปสถานีตรวจซ้ำ</button></div>
+<div class="progress"><div id="bar"></div></div><div id="progressText" class="muted">ยังไม่มีบิล</div>
+</div>
+
+<div class="card"><h2>3. รายการเทียบกับบิล</h2><div id="checkLines" class="muted">ยืนยันบิลก่อนเริ่มตรวจ</div></div>
+<div class="card"><h2>4. ตรวจสอบก่อนปิดบิล</h2>
+<label>ประเภทบรรจุภัณฑ์</label><select id="packageType"><option value="">ยังไม่ระบุ</option><option>ซองกันกระแทก</option><option>กล่อง S</option><option>กล่อง S2</option><option>กล่อง B</option><option>อื่นๆ</option></select>
+<p class="muted">เลือกประเภทเพื่อบันทึกผลเท่านั้น ยังไม่มีเกณฑ์ตัดสินว่าบรรจุภัณฑ์ใดเหมาะกับสินค้า จนกว่าจะได้รับข้อกำหนดจากบริษัท</p>
+<label>หมายเหตุ (ไม่บังคับ)</label><input id="note" placeholder="เช่น พบสินค้าชำรุด / ทดลองรอบที่ 1">
+<button id="close" class="good" style="width:100%" disabled>ยืนยันผลและปิดบิล</button><label>กรณีปิดบิลไม่ครบ ให้เลือกเหตุผล</label><select id="shortReason"><option>สินค้าหมด/ไม่มีของ</option><option>หยิบไม่ครบ ต้องกลับไปหยิบ</option><option>พบสินค้าผิดรุ่น/ชำรุด</option><option>บิลผิด/ต้องแก้บิล</option><option>อื่นๆ (ระบุในหมายเหตุ)</option></select><button id="closeShort" class="secondary" style="width:100%;margin-top:8px">ปิดบิลแบบไม่ครบ (บันทึกผล)</button>
+</div>
+</section>
+
+<section id="products" class="hidden">
+<div class="card"><h2>เพิ่มสินค้า</h2><label>บาร์โค้ดสินค้า (เก็บเป็นข้อความ)</label><input id="code" inputmode="numeric" placeholder="รหัสบาร์โค้ด"><label>ชื่อสินค้า / รุ่น</label><input id="name" placeholder="ชื่อสินค้า"><button id="saveProduct" style="width:100%;margin-top:8px">บันทึกสินค้า</button></div>
+<div class="card"><h2>นำเข้าข้อมูล CSV</h2><p class="muted">รูปแบบ: barcode,name หรือ รหัสบาร์โค้ด,ชื่อสินค้า (หนึ่งรายการต่อบรรทัด) เก็บเลขศูนย์ด้านหน้าได้เมื่อเปิด CSV ด้วยโปรแกรมที่ไม่แปลงเป็นตัวเลข</p>
+<input id="csv" type="file" accept=".csv,text/csv"><textarea id="paste" placeholder="barcode,name&#10;885000000001,สินค้า A&#10;885000000002,สินค้า B"></textarea><button id="import" style="width:100%">นำเข้า / วางข้อมูล</button><p id="importMsg" class="muted"></p></div>
+<div class="card"><h2>รายการสินค้า</h2><div id="productList"></div></div>
+</section>
+
+<section id="history" class="hidden"><div class="card"><h2>ประวัติการตรวจ</h2><button id="export" style="width:100%">ส่งออก CSV</button><div id="historyList"></div></div></section>
+<section id="summary" class="hidden">
+<div class="card"><h2>รายงานการตรวจ</h2><div class="grid">
+<div class="stat"><b id="bills">0</b><small>บิลที่ปิดแล้ว</small></div>
+<div class="stat"><b id="passBills">0</b><small>บิลผ่านการตรวจสองสถานี</small></div>
+<div class="stat"><b id="warnings">0</b><small>เหตุการณ์แจ้งเตือน</small></div>
+<div class="stat"><b id="accuracy">0%</b><small>อัตราบิลผ่านการตรวจ</small></div>
+<div class="stat"><b id="average">0</b><small>เวลาเฉลี่ย (วินาที)</small></div><div class="stat"><b id="notPass">0</b><small>บิลปิดไม่ครบ/ยกเลิก</small></div><div class="stat"><b id="warnVerify">0</b><small>เตือนที่สถานีตรวจซ้ำ</small></div>
+</div></div>
+<div class="card"><h2>สำรอง / กู้คืนข้อมูล</h2><p class="muted">ข้อมูลอยู่ในเบราว์เซอร์ของอุปกรณ์นี้ ไม่ซิงก์ระหว่างมือถือกับคอมพิวเตอร์ ใช้ไฟล์สำรองเพื่อย้ายข้อมูล</p><div class="row"><button id="backup">ดาวน์โหลดข้อมูลสำรอง</button><label class="secondary" style="padding:12px;border-radius:10px;text-align:center">นำเข้าข้อมูลสำรอง<input id="restore" type="file" accept=".json" style="display:none"></label></div></div>
+<div class="card"><h2>ตั้งค่า</h2><button id="dark" class="secondary" style="width:100%">สลับโหมดมืด / สว่าง</button><button id="clear" class="danger" style="width:100%;margin-top:8px">ลบข้อมูลทั้งหมดในอุปกรณ์นี้</button></div>
+</section>
+</main>
+<footer><button class="secondary" onclick="page('work')">ตรวจ</button><button class="secondary" onclick="page('products')">สินค้า</button><button class="secondary" onclick="page('history')">ประวัติ</button><button class="secondary" onclick="page('summary')">รายงาน</button></footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+let products=load('dc_products',[]), history=load('dc_history',[]), draft=[], bill=null, events=[], started=0, tick=null, stream=null, scanner=null, cameraLoop=false;
+let stage='picking';
+const activeKey='bksc_active_v1';
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function page(p){['work','products','history','summary'].forEach(x=>$(x).classList.toggle('hidden',x!==p));if(p==='products')renderProducts();if(p==='history')renderHistory();if(p==='summary')renderSummary()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>page(b.dataset.page));
+function refreshSelect(){$('productSelect').innerHTML=products.map(p=>`<option value="${esc(p.code)}">${esc(p.name)} (${esc(p.code)})</option>`).join('')}
+function renderProducts(){$('productList').innerHTML=products.map((p,i)=>`<div class="item itemtop"><span><b>${esc(p.name)}</b><br><small>${esc(p.code)}</small></span><button class="danger" onclick="deleteProduct(${i})">ลบ</button></div>`).join('')||'ยังไม่มีสินค้า'}
+function deleteProduct(i){if(bill)return alert('ปิดหรือยกเลิกบิลก่อนแก้ไขรายการสินค้า');products.splice(i,1);save('dc_products',products);renderProducts();refreshSelect()}
+$('saveProduct').onclick=()=>{let code=$('code').value.trim(),name=$('name').value.trim();if(!code||!name)return alert('กรอกรหัสและชื่อสินค้า');if(products.some(p=>p.code===code))return alert('บาร์โค้ดนี้มีอยู่แล้ว');products.push({code,name});save('dc_products',products);$('code').value='';$('name').value='';refreshSelect();renderProducts()};
+function parseCSVLine(line){let out=[],cur='',q=false;for(let i=0;i<line.length;i++){let c=line[i];if(c==='"'&&line[i+1]==='"'&&q){cur+='"';i++}else if(c==='"')q=!q;else if(c===','&&!q){out.push(cur);cur=''}else cur+=c}out.push(cur);return out}
+function importRows(t){let added=0,dups=0,bad=0;let lines=t.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());lines.forEach((line,i)=>{let a=parseCSVLine(line);if(i===0&&/barcode|บาร์โค้ด|รหัส/i.test(a[0]))return;let code=(a[0]||'').trim(),name=(a.slice(1).join(',')||'').trim();if(!code||!name){bad++;return}if(products.some(p=>p.code===code)){dups++;return}products.push({code,name});added++});save('dc_products',products);refreshSelect();renderProducts();$('importMsg').textContent=`เพิ่ม ${added} รายการ · ซ้ำ ${dups} · ข้อมูลไม่ครบ ${bad}`}
+$('import').onclick=()=>importRows($('paste').value);$('csv').onchange=async e=>{if(e.target.files[0])importRows(await e.target.files[0].text())};
+$('add').onclick=()=>{if(bill)return alert('มีบิลกำลังตรวจอยู่');let p=products.find(x=>x.code===$('productSelect').value),q=Number($('qty').value);if(!p||!Number.isInteger(q)||q<1)return alert('เลือกสินค้าและจำนวนให้ถูกต้อง');let l=draft.find(x=>x.code===p.code);if(l)l.need+=q;else draft.push({code:p.code,name:p.name,need:q,picked:0,verified:0});renderDraft()};
+function renderDraft(){$('draft').innerHTML=draft.map((l,i)=>`<div class="item itemtop"><span>${esc(l.name)} × ${l.need}</span><button class="secondary" onclick="removeDraft(${i})">เอาออก</button></div>`).join('')||'<p class="muted">ยังไม่มีรายการ</p>'}
+function removeDraft(i){if(bill)return;draft.splice(i,1);renderDraft()}
+function persistActive(){if(bill)save(activeKey,{bill,events,started,stage})}
+function startTimer(){if(!tick)tick=setInterval(()=>{$('clock').textContent=fmt(Math.floor((Date.now()-started)/1000))},500)}
+$('start').onclick=()=>{let id=$('billId').value.trim();if(bill||!id||!draft.length)return alert('ใส่รหัสบิลและเพิ่มสินค้า');if(history.some(h=>h.id===id&&h.result!=='ยกเลิก'))return alert('รหัสบิลนี้เคยบันทึกแล้ว');bill={id,lines:draft.map(x=>({...x}))};events=[];started=Date.now();stage='picking';$('billId').disabled=true;$('start').disabled=true;$('close').disabled=true;$('advance').disabled=true;$('active').textContent='กำลังตรวจบิล '+id;startTimer();persistActive();renderAll();message('เริ่มสถานีหยิบสินค้าได้','warn')};
+function renderLines(){if(!bill){$('checkLines').textContent='ยืนยันบิลก่อนเริ่มตรวจ';return}
+$('checkLines').innerHTML=bill.lines.map(l=>`<div class="item"><b>${esc(l.name)}</b><div class="muted">ตามบิล ${l.need} · หยิบ ${l.picked} · ตรวจซ้ำ ${l.verified}</div><div class="muted">${stage==='picking'?'คงเหลือให้หยิบ '+Math.max(0,l.need-l.picked):'คงเหลือให้ตรวจ '+Math.max(0,l.picked-l.verified)}</div></div>`).join('')}
+function renderAll(){renderLines();let total=bill?bill.lines.reduce((s,l)=>s+(stage==='picking'?l.need:l.picked),0):0,done=bill?bill.lines.reduce((s,l)=>s+(stage==='picking'?l.picked:l.verified),0):0;$('bar').style.width=(total?Math.min(100,100*done/total):0)+'%';$('progressText').textContent=bill?`${stage==='picking'?'หยิบแล้ว':'ตรวจซ้ำแล้ว'} ${done} / ${total} ชิ้น`:'ยังไม่มีบิล';$('phasePicking').classList.toggle('active',stage==='picking');$('phaseVerify').classList.toggle('active',stage==='verify');$('phaseText').textContent=!bill?'ยังไม่เริ่ม':stage==='picking'?'สถานีหยิบสินค้า':'สถานีตรวจซ้ำ';$('pickBadge').textContent=bill?(bill.lines.every(l=>l.picked===l.need)?'หยิบครบ':'กำลังหยิบ'):'รอเริ่ม';$('verifyBadge').textContent=bill?(bill.lines.every(l=>l.verified===l.picked)&&stage==='verify'?'ตรวจครบ':stage==='verify'?'กำลังตรวจ':'รอหยิบครบ'):'รอหยิบครบ';$('advance').disabled=!bill||stage!=='picking'||!bill.lines.every(l=>l.picked===l.need);$('undo').disabled=!events.length;$('close').disabled=!bill||stage!=='verify'||!bill.lines.every(l=>l.verified===l.picked)&&false}
+function updateClose(){let ok=bill&&stage==='verify'&&bill.lines.every(l=>l.verified===l.need);$('close').disabled=!ok}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function feedback(kind){try{navigator.vibrate?.(kind==='good'?60:[100,50,100]);let C=window.AudioContext||window.webkitAudioContext;if(C){let c=new C(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=kind==='good'?850:220;g.gain.value=.05;o.start();o.stop(c.currentTime+.1);o.onended=()=>c.close()}}catch{}}
+function message(s,t){$('result').textContent=s;$('result').className=t;feedback(t)}
+function scan(raw){if(!bill)return message('กรุณาเริ่มบิลก่อน','warn');let code=String(raw??'').trim();if(!code)return;let q=Number($('mult').value);if(!Number.isInteger(q)||q<1)return message('จำนวนสแกนไม่ถูกต้อง','bad');
+let l=bill.lines.find(x=>x.code===code);
+if(!l){events.push({stage,code,q,valid:false,type:'ผิดรายการ',time:new Date().toISOString()});message('ผิดรายการ: '+code,'bad')}
+else if(stage==='picking'){
+ if(l.picked+q>l.need){events.push({stage,code,q,valid:false,type:'หยิบเกินจำนวน',time:new Date().toISOString()});message('หยิบเกินจำนวน: '+l.name,'warn')}
+ else{l.picked+=q;events.push({stage,code,q,valid:true,type:'หยิบถูกต้อง',time:new Date().toISOString()});message('หยิบถูกต้อง: '+l.name+' × '+q,'good')}
+}else{
+ if(l.verified+q>l.picked){events.push({stage,code,q,valid:false,type:'ตรวจเกินจำนวนที่หยิบ',time:new Date().toISOString()});message('จำนวนตรวจซ้ำเกินจำนวนที่หยิบ: '+l.name,'warn')}
+ else{l.verified+=q;events.push({stage,code,q,valid:true,type:'ตรวจซ้ำถูกต้อง',time:new Date().toISOString()});message('ตรวจซ้ำถูกต้อง: '+l.name+' × '+q,'good')}
+}
+persistActive();renderAll();updateClose()}
+$('scanInput').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();let v=$('scanInput').value;$('scanInput').value='';scan(v)}};
+$('advance').onclick=()=>{if(!bill||stage!=='picking'||!bill.lines.every(l=>l.picked===l.need))return;stage='verify';persistActive();renderAll();updateClose();message('หยิบครบแล้ว เริ่มตรวจซ้ำก่อนบรรจุ','warn')};
+$('undo').onclick=()=>{let e=events.pop();if(!e)return;let l=bill?.lines.find(x=>x.code===e.code);if(l&&e.valid){if(e.stage==='picking')l.picked=Math.max(0,l.picked-e.q);else l.verified=Math.max(0,l.verified-e.q)}persistActive();renderAll();updateClose();message('ย้อนรายการสแกนล่าสุดแล้ว','warn')};
+$('reset').onclick=()=>{if(bill&&!confirm('ยกเลิกบิลที่กำลังตรวจ? เหตุการณ์ที่เตือนจะถูกบันทึกเป็น "ยกเลิก" ในประวัติ'))return;if(bill&&events.length){history.unshift(makeRecord('ยกเลิก','ยกเลิกระหว่างตรวจ'));save('dc_history',history)}stopCam();clearInterval(tick);tick=null;localStorage.removeItem(activeKey);bill=null;draft=[];events=[];started=0;stage='picking';$('billId').value='';$('billId').disabled=false;$('start').disabled=false;$('clock').textContent='00:00';$('active').textContent='';$('packageType').value='';$('note').value='';renderDraft();renderAll();updateClose();message('พร้อมเริ่มบิลใหม่','warn')};
+$('close').onclick=()=>{if(!bill||stage!=='verify'||!bill.lines.every(l=>l.picked===l.need&&l.verified===l.need))return alert('ต้องหยิบและตรวจซ้ำให้ครบทุกชิ้นก่อนปิดบิล');let seconds=Math.floor((Date.now()-started)/1000),warnings=events.filter(e=>!e.valid).length;let record={date:new Date().toLocaleString('th-TH'),id:bill.id,items:bill.lines.length,qty:bill.lines.reduce((s,l)=>s+l.need,0),seconds,result:'ผ่านการตรวจสองสถานี',types:[...new Set(events.filter(e=>!e.valid).map(e=>e.type))].join('/'),warnings,packageType:$('packageType').value,note:$('note').value,lines:bill.lines.map(l=>({code:l.code,name:l.name,need:l.need,picked:l.picked,verified:l.verified})),events:events.slice()};history.unshift(record);save('dc_history',history);stopCam();clearInterval(tick);tick=null;localStorage.removeItem(activeKey);bill=null;draft=[];events=[];started=0;stage='picking';$('billId').value='';$('billId').disabled=false;$('start').disabled=false;$('clock').textContent='00:00';$('active').textContent='บันทึกผลแล้ว';$('packageType').value='';$('note').value='';renderDraft();renderAll();updateClose();renderSummary();message('บันทึกผลผ่านการตรวจสองสถานีแล้ว','good')};
+function renderHistory(){$('historyList').innerHTML=history.map(h=>`<div class="item"><b>${esc(h.id)}</b> · <span class="pill ${h.result==='ผ่านการตรวจสองสถานี'?'good':'warn'}">${esc(h.result||'-')}</span><div class="muted">${esc(h.date)} | ${h.items} รายการ | ${h.qty} ชิ้น | ${h.seconds} วินาที | แจ้งเตือนระหว่างทำ ${h.warnings||0} ครั้ง${h.reason?' | เหตุผล: '+esc(h.reason):''}</div><small>บรรจุภัณฑ์: ${esc(h.packageType||'-')} · เหตุการณ์: ${esc(h.types||'-')}</small></div>`).join('')||'ยังไม่มีประวัติ'}
+function renderSummary(){renderExtra();let n=history.length,pass=history.filter(h=>h.result==='ผ่านการตรวจสองสถานี').length;$('bills').textContent=n;$('passBills').textContent=pass;$('warnings').textContent=history.reduce((s,h)=>s+(h.warnings||0),0);$('accuracy').textContent=n?Math.round(pass/n*100)+'%':'0%';$('average').textContent=n?Math.round(history.reduce((s,h)=>s+(h.seconds||0),0)/n):0}
+$('export').onclick=()=>{let rows=[['วันที่','รหัสบิล','จำนวนรายการ','จำนวนชิ้น','เวลา(วินาที)','ผลตรวจ','ประเภทเหตุการณ์เตือน','จำนวนเตือน','บรรจุภัณฑ์','หมายเหตุ','รายละเอียดสินค้า','เหตุผลที่ปิดไม่ครบ/ยกเลิก','ชิ้นที่ขาด','เตือนที่สถานีหยิบ','เตือนที่สถานีตรวจซ้ำ','รายละเอียดเหตุการณ์เตือน'],...history.map(h=>[h.date,h.id,h.items,h.qty,h.seconds,h.result,h.types,h.warnings,h.packageType,h.note,(h.lines||[]).map(l=>`${l.code}:${l.name} need=${l.need} picked=${l.picked} verified=${l.verified}`).join(' | '),h.reason||'',(h.lines||[]).reduce((s,l)=>s+Math.max(0,l.need-l.verified),0),(h.events||[]).filter(e=>!e.valid&&e.stage==='picking').length,(h.events||[]).filter(e=>!e.valid&&e.stage==='verify').length,(h.events||[]).filter(e=>!e.valid).map(e=>e.stage+':'+e.type+':'+e.code).join(' | ')])];download('BK-SureCheck-history.csv','\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'text/csv;charset=utf-8')};
+function download(name,data,type){let a=document.createElement('a'),u=URL.createObjectURL(new Blob([data],{type}));a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+$('backup').onclick=()=>download('BK-SureCheck-backup.json',JSON.stringify({products,history},null,2),'application/json');
+$('restore').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let d=JSON.parse(await f.text());if(!Array.isArray(d.products)||!Array.isArray(d.history))throw Error();if(!confirm('นำเข้าข้อมูลและแทนที่สินค้า/ประวัติในอุปกรณ์นี้?'))return;products=d.products;history=d.history;save('dc_products',products);save('dc_history',history);refreshSelect();renderProducts();renderHistory();renderSummary();alert('กู้คืนข้อมูลสำเร็จ')}catch{alert('ไฟล์สำรองไม่ถูกต้อง')}e.target.value=''};
+$('dark').onclick=()=>document.body.classList.toggle('dark');$('clear').onclick=()=>{if(confirm('ลบสินค้าและประวัติทั้งหมดในอุปกรณ์นี้?')){localStorage.removeItem('dc_products');localStorage.removeItem('dc_history');localStorage.removeItem(activeKey);products=[];history=[];refreshSelect();renderProducts();renderHistory();renderSummary()}};
+async function stopCam(){cameraLoop=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}if(scanner){try{await scanner.stop();await scanner.clear()}catch{}scanner=null}$('reader').innerHTML='';$('reader').classList.add('hidden');$('camera').disabled=false;$('stopCamera').disabled=true}
+async function openCam(){if(!bill)return alert('เริ่มบิลก่อน');if(!navigator.mediaDevices?.getUserMedia)return alert('เบราว์เซอร์นี้ไม่รองรับกล้อง');$('camera').disabled=true;$('stopCamera').disabled=false;$('reader').classList.remove('hidden');
+if('BarcodeDetector'in window){try{let detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e']}),video=document.createElement('video');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});video.autoplay=true;video.playsInline=true;video.srcObject=stream;$('reader').append(video);let last='',lastAt=0;cameraLoop=true;await video.play();let loop=async()=>{if(!cameraLoop)return;try{let found=await detector.detect(video),now=Date.now();if(found.length){let value=found[0].rawValue;if(value!==last||now-lastAt>1600){last=value;lastAt=now;scan(value)}}}catch{}if(cameraLoop)requestAnimationFrame(loop)};loop();return}catch(err){await stopCam()}}
+try{if(!window.Html5Qrcode)await new Promise((ok,no)=>{let s=document.createElement('script');s.src='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=ok;s.onerror=no;document.head.append(s)});scanner=new Html5Qrcode('reader');let last='',at=0;await scanner.start({facingMode:'environment'},{fps:8,qrbox:{width:240,height:130}},value=>{let now=Date.now();if(value!==last||now-at>1600){last=value;at=now;scan(value)}},()=>{});return}catch(err){await stopCam();alert('เปิดกล้องไม่สำเร็จ: ต้องใช้ HTTPS และอนุญาตสิทธิ์กล้อง หากอุปกรณ์ไม่รองรับ BarcodeDetector ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อโหลดตัวช่วยสแกน')}}
+$('camera').onclick=openCam;$('stopCamera').onclick=stopCam;
+function restoreActive(){let a=load(activeKey,null);if(!a?.bill)return;bill=a.bill;events=a.events||[];started=a.started||Date.now();stage=a.stage||'picking';$('billId').value=bill.id;$('billId').disabled=true;$('start').disabled=true;$('active').textContent='กู้คืนบิลที่กำลังตรวจ '+bill.id;startTimer();$('clock').textContent=fmt(Math.floor((Date.now()-started)/1000));renderAll();updateClose();message('กู้คืนบิลที่กำลังตรวจจากอุปกรณ์นี้แล้ว','warn')}
+refreshSelect();renderProducts();renderDraft();renderAll();renderSummary();restoreActive();updateClose();
+
+function makeRecord(result,reason){let bad=events.filter(e=>!e.valid);return{date:new Date().toLocaleString('th-TH'),id:bill.id,items:bill.lines.length,qty:bill.lines.reduce((s,l)=>s+l.need,0),seconds:Math.floor((Date.now()-started)/1000),result,reason:reason||'',types:[...new Set(bad.map(e=>e.type))].join('/'),warnings:bad.length,packageType:$('packageType').value,note:$('note').value,lines:bill.lines.map(l=>({code:l.code,name:l.name,need:l.need,picked:l.picked,verified:l.verified})),events:events.slice()}}
+function renderExtra(){$('notPass').textContent=history.filter(h=>h.result!=='ผ่านการตรวจสองสถานี').length;$('warnVerify').textContent=history.reduce((s,h)=>s+(h.events||[]).filter(e=>!e.valid&&e.stage==='verify').length,0)}
+$('closeShort').onclick=()=>{if(!bill)return alert('ยังไม่มีบิลที่กำลังตรวจ');let r=$('shortReason').value;if(!confirm('ปิดบิลโดยยังไม่ครบ? เหตุผล: '+r))return;history.unshift(makeRecord('ปิดไม่ครบ',r));save('dc_history',history);stopCam();clearInterval(tick);tick=null;localStorage.removeItem(activeKey);bill=null;draft=[];events=[];started=0;stage='picking';$('billId').value='';$('billId').disabled=false;$('start').disabled=false;$('clock').textContent='00:00';$('active').textContent='บันทึกผลแล้ว (ปิดไม่ครบ)';$('packageType').value='';$('note').value='';renderDraft();renderAll();updateClose();renderSummary();message('บันทึกบิลที่ปิดไม่ครบแล้ว','warn')};
+renderExtra();
+</script>
+</body></html>
